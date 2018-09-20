@@ -1,71 +1,154 @@
 import * as Assets from '../assets';
 
+enum Corner {
+    UpperLeft,
+    UpperRight,
+    LowerLeft,
+    LowerRight,
+    None
+}
+
+class GameRectangle {
+    public rect: Phaser.Rectangle;
+    public clickedCorner: Corner = Corner.None;
+    public draggedVector: Phaser.Point;
+
+    constructor(x, y, width, height) {
+        this.rect = new Phaser.Rectangle(x, y, width, height);
+    }
+}
+
+const CIRCLE_RADIUS = 5;
+const CORNER_COLOR = 0xff0000;
+const CLICKED_CORNER_COLOR = 0x0000ff;
+
 export default class Title extends Phaser.State {
-    private backgroundTemplateSprite: Phaser.Sprite = null;
-    private googleFontText: Phaser.Text = null;
-    private localFontText: Phaser.Text = null;
-    private pixelateShader: Phaser.Filter = null;
-    private bitmapFontText: Phaser.BitmapText = null;
-    private blurXFilter: Phaser.Filter.BlurX = null;
-    private blurYFilter: Phaser.Filter.BlurY = null;
-    private sfxAudiosprite: Phaser.AudioSprite = null;
-    private mummySpritesheet: Phaser.Sprite = null;
-    private sfxLaserSounds: Assets.Audiosprites.AudiospritesSfx.Sprites[] = null;
+
+    private graphics: Phaser.Graphics;
+    private recs: Array<GameRectangle> = [];
+
+    private draggedRecs: Array<GameRectangle> = [];
+
+    public drawGameRectangle(r: GameRectangle) {
+
+        // draw the rectangle itself
+        this.graphics.beginFill(0xffffff, 1);
+        this.graphics.drawRect(r.rect.x, r.rect.y, r.rect.width, r.rect.height);
+
+        // draw handles
+        this.graphics.beginFill(r.clickedCorner === Corner.UpperLeft ? CLICKED_CORNER_COLOR : CORNER_COLOR, 1);
+        this.graphics.drawCircle(r.rect.x, r.rect.y, CIRCLE_RADIUS*2);
+        this.graphics.beginFill(r.clickedCorner === Corner.UpperRight ? CLICKED_CORNER_COLOR : CORNER_COLOR, 1);
+        this.graphics.drawCircle(r.rect.x+r.rect.width, r.rect.y, CIRCLE_RADIUS*2);
+        this.graphics.beginFill(r.clickedCorner === Corner.LowerLeft ? CLICKED_CORNER_COLOR : CORNER_COLOR, 1);
+        this.graphics.drawCircle(r.rect.x, r.rect.y+r.rect.height, CIRCLE_RADIUS*2);
+        this.graphics.beginFill(r.clickedCorner === Corner.LowerRight ? CLICKED_CORNER_COLOR : CORNER_COLOR, 1);
+        this.graphics.drawCircle(r.rect.x+r.rect.width, r.rect.y+r.rect.height, CIRCLE_RADIUS*2);
+
+
+        this.graphics.endFill();
+    }
 
     public create(): void {
-        this.backgroundTemplateSprite = this.game.add.sprite(this.game.world.centerX, this.game.world.centerY, Assets.Images.ImagesBackgroundTemplate.getName());
-        this.backgroundTemplateSprite.anchor.setTo(0.5);
+        this.graphics = this.game.add.graphics(0, 0);
 
-        this.googleFontText = this.game.add.text(this.game.world.centerX, this.game.world.centerY - 100, 'Google Web Fonts', {
-            font: '50px ' + Assets.GoogleWebFonts.Barrio
-        });
-        this.googleFontText.anchor.setTo(0.5);
+        this.recs.push(new GameRectangle(100, 100, 100, 100));
+        this.recs.push(new GameRectangle(300, 200, 200, 50));
 
-        this.localFontText = this.game.add.text(this.game.world.centerX, this.game.world.centerY, 'Local Fonts + Shaders .frag (Pixelate here)!', {
-            font: '30px ' + Assets.CustomWebFonts.Fonts2DumbWebfont.getFamily()
-        });
-        this.localFontText.anchor.setTo(0.5);
+        this.game.input.onDown.add((pointer, event) => {
+            for(var r of this.recs) {
+                this.checkPointerWithRec(this.input.activePointer.worldX, this.input.activePointer.worldY, r);
+            }
+        }, this);
 
-        this.pixelateShader = new Phaser.Filter(this.game, null, this.game.cache.getShader(Assets.Shaders.ShadersPixelate.getName()));
-        this.localFontText.filters = [this.pixelateShader];
+        this.game.input.onUp.add((pointer, event) => {
+            this.draggedRecs = [];
+        }, this);
+    }
 
-        this.bitmapFontText = this.game.add.bitmapText(this.game.world.centerX, this.game.world.centerY + 100, Assets.BitmapFonts.FontsFontFnt.getName(), 'Bitmap Fonts + Filters .js (Blur here)!', 40);
-        this.bitmapFontText.anchor.setTo(0.5);
+    public checkPointerWithRec(pointerX: number, pointerY: number, r: GameRectangle) {
+        if (Phaser.Math.distance(pointerX, pointerY, r.rect.x, r.rect.y) < CIRCLE_RADIUS) {
+            r.clickedCorner = Corner.UpperLeft;
+            this.draggedRecs.push(r);
+            return;
+        }
+        if (Phaser.Math.distance(pointerX, pointerY, r.rect.x+r.rect.width, r.rect.y) < CIRCLE_RADIUS) {
+            r.clickedCorner = Corner.UpperRight;
+            this.draggedRecs.push(r);
+            return;
+        }
+        if (Phaser.Math.distance(pointerX, pointerY, r.rect.x, r.rect.y+r.rect.height) < CIRCLE_RADIUS) {
+            r.clickedCorner = Corner.LowerLeft;
+            this.draggedRecs.push(r);
+            return;
+        }
+        if (Phaser.Math.distance(pointerX, pointerY, r.rect.x+r.rect.width, r.rect.y+r.rect.height) < CIRCLE_RADIUS) {
+            r.clickedCorner = Corner.LowerRight;
+            this.draggedRecs.push(r);
+            return;
+        }
 
-        this.blurXFilter = this.game.add.filter(Assets.Scripts.ScriptsBlurX.getName()) as Phaser.Filter.BlurX;
-        this.blurXFilter.blur = 8;
-        this.blurYFilter = this.game.add.filter(Assets.Scripts.ScriptsBlurY.getName()) as Phaser.Filter.BlurY;
-        this.blurYFilter.blur = 2;
+        r.clickedCorner = Corner.None;
 
-        this.bitmapFontText.filters = [this.blurXFilter, this.blurYFilter];
+        if(r.rect.contains(pointerX, pointerY)) {
+            r.draggedVector = new Phaser.Point(r.rect.x - pointerX, r.rect.y - pointerY);
+            this.draggedRecs.push(r);
+        }
+    }
 
-        this.mummySpritesheet = this.game.add.sprite(this.game.world.centerX, this.game.world.centerY + 175, Assets.Spritesheets.SpritesheetsMetalslugMummy374518.getName());
-        this.mummySpritesheet.animations.add('walk');
-        this.mummySpritesheet.animations.play('walk', 30, true);
+    public updateDraggedRec(r: GameRectangle) {
+        switch(r.clickedCorner) {
+            case Corner.LowerRight:
+            r.rect.width = this.input.activePointer.worldX - r.rect.x;
+            r.rect.height = this.input.activePointer.worldY - r.rect.y;
+            break;
 
-        this.sfxAudiosprite = this.game.add.audioSprite(Assets.Audiosprites.AudiospritesSfx.getName());
+            case Corner.LowerLeft:
+            r.rect.width = r.rect.x - this.input.activePointer.worldX + r.rect.width;
+            r.rect.x = this.input.activePointer.worldX;
+            r.rect.height = this.input.activePointer.worldY - r.rect.y;
+            break;
 
-        // This is an example of how you can lessen the verbosity
-        let availableSFX = Assets.Audiosprites.AudiospritesSfx.Sprites;
-        this.sfxLaserSounds = [
-            availableSFX.Laser1,
-            availableSFX.Laser2,
-            availableSFX.Laser3,
-            availableSFX.Laser4,
-            availableSFX.Laser5,
-            availableSFX.Laser6,
-            availableSFX.Laser7,
-            availableSFX.Laser8,
-            availableSFX.Laser9
-        ];
+            case Corner.UpperRight:
+            r.rect.width = this.input.activePointer.worldX - r.rect.x;
+            r.rect.height = r.rect.y - this.input.activePointer.worldY + r.rect.height;
+            r.rect.y = this.input.activePointer.worldY;
+            break;
 
-        this.game.sound.play(Assets.Audio.AudioMusic.getName(), 0.2, true);
+            case Corner.UpperLeft:
+            r.rect.width = r.rect.x - this.input.activePointer.worldX + r.rect.width;
+            r.rect.x = this.input.activePointer.worldX;
+            r.rect.height = r.rect.y - this.input.activePointer.worldY + r.rect.height;
+            r.rect.y = this.input.activePointer.worldY;
+            break;
 
-        this.backgroundTemplateSprite.inputEnabled = true;
-        this.backgroundTemplateSprite.events.onInputDown.add(() => {
-            this.sfxAudiosprite.play(Phaser.ArrayUtils.getRandomItem(this.sfxLaserSounds));
-        });
+            case Corner.None:
+            for (let r of this.draggedRecs) {
+                if(r.clickedCorner !== Corner.None) {
+                    break;
+                }
+            }
+            r.rect.x = this.input.activePointer.worldX + r.draggedVector.x;
+            r.rect.y = this.input.activePointer.worldY + r.draggedVector.y;
+            break;
+        }
+    }
 
-        this.game.camera.flash(0x000000, 1000);
+    public updateDraggedRecs() {
+        for (let r of this.draggedRecs) {
+            this.updateDraggedRec(r);
+        }
+    }
+
+    public update(): void {
+        this.updateDraggedRecs();
+    }
+
+    public render(): void {
+        this.graphics.clear();
+
+        for (var r of this.recs) {
+            this.drawGameRectangle(r);
+        }
     }
 }
