@@ -83,6 +83,55 @@ export default class Title extends Phaser.State {
         }
     }
 
+    public saveLevel() {
+        let level = {};
+        let blocks = [];
+        for (let r of this.recs) {
+            blocks.push({
+                'x': r.rect.x,
+                'y': r.rect.y,
+                'width': r.rect.width,
+                'height': r.rect.height
+            });
+        }
+        level["blocks"] = blocks;
+
+        let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(level));
+        let downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "level.json");
+        document.body.appendChild(downloadAnchorNode); // required for firefox
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    }
+
+    public loadLevel(l) {
+        this.recs = [];
+        for (let b of l.blocks) {
+            this.recs.push(new GameRectangle(b.x, b.y, b.width, b.height));
+        }
+    }
+
+    public openLevel() {
+        let that = this;
+        let input = document.createElement("input");
+        input.setAttribute("type", "file");
+        input.click();
+        input.addEventListener('change', (rawEvent) => {
+            let event = rawEvent as any;
+            let file = event.target.files[0];
+            
+            let reader = new FileReader();
+            reader.onload = (a) => {
+                let t = a.target as any;
+                let level = JSON.parse(t.result);
+                that.loadLevel.bind(that);
+                that.loadLevel(level);
+            }
+            reader.readAsText(file);
+        }, false);
+    }
+
     public create(): void {
         this.game.canvas.oncontextmenu = function(e) { e.preventDefault(); }
         this.game.world.setBounds(0, 0, 10000, 10000);
@@ -117,6 +166,13 @@ export default class Title extends Phaser.State {
             }
             if (e.key === "2") {
                 this.deleteBlock();
+            }
+
+            if (e.key === "s") {
+                this.saveLevel();
+            }
+            if (e.key === "o") {
+                this.openLevel();
             }
         };
 
