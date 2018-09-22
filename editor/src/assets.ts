@@ -1,7 +1,11 @@
 /* AUTO GENERATED FILE. DO NOT MODIFY. YOU WILL LOSE YOUR CHANGES ON BUILD. */
 
 export namespace Images {
-    class IExistSoTypeScriptWillNotComplainAboutAnEmptyNamespace {}
+    export class ImagesBackgroundTemplate {
+        static getName(): string { return 'background_template'; }
+
+        static getPNG(): string { return require('assets/images/background_template.png'); }
+    }
 }
 
 export namespace Spritesheets {
