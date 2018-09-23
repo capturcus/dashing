@@ -1,71 +1,51 @@
 import * as Assets from '../assets';
 
 export default class Title extends Phaser.State {
-    private backgroundTemplateSprite: Phaser.Sprite = null;
-    private googleFontText: Phaser.Text = null;
-    private localFontText: Phaser.Text = null;
-    private pixelateShader: Phaser.Filter = null;
-    private bitmapFontText: Phaser.BitmapText = null;
-    private blurXFilter: Phaser.Filter.BlurX = null;
-    private blurYFilter: Phaser.Filter.BlurY = null;
-    private sfxAudiosprite: Phaser.AudioSprite = null;
-    private mummySpritesheet: Phaser.Sprite = null;
-    private sfxLaserSounds: Assets.Audiosprites.AudiospritesSfx.Sprites[] = null;
+
+    private white: Phaser.BitmapData;
+    private playerBD: Phaser.BitmapData;
+    private blocks: Phaser.Group;
+    private player: Phaser.Sprite;
+    private cursors: Phaser.CursorKeys;
 
     public create(): void {
-        this.backgroundTemplateSprite = this.game.add.sprite(this.game.world.centerX, this.game.world.centerY, Assets.Images.ImagesBackgroundTemplate.getName());
-        this.backgroundTemplateSprite.anchor.setTo(0.5);
+        this.game.physics.startSystem(Phaser.Physics.ARCADE);
 
-        this.googleFontText = this.game.add.text(this.game.world.centerX, this.game.world.centerY - 100, 'Google Web Fonts', {
-            font: '50px ' + Assets.GoogleWebFonts.Barrio
-        });
-        this.googleFontText.anchor.setTo(0.5);
+        this.blocks = this.game.add.group();
+        this.blocks.enableBody = true;
 
-        this.localFontText = this.game.add.text(this.game.world.centerX, this.game.world.centerY, 'Local Fonts + Shaders .frag (Pixelate here)!', {
-            font: '30px ' + Assets.CustomWebFonts.Fonts2DumbWebfont.getFamily()
-        });
-        this.localFontText.anchor.setTo(0.5);
+        this.white = new Phaser.BitmapData(this.game, "white", 1, 1);
+        this.white.fill(255, 255, 255);
 
-        this.pixelateShader = new Phaser.Filter(this.game, null, this.game.cache.getShader(Assets.Shaders.ShadersPixelate.getName()));
-        this.localFontText.filters = [this.pixelateShader];
+        this.playerBD = new Phaser.BitmapData(this.game, "player", 32, 48);
+        this.playerBD.fill(255, 0, 0);
 
-        this.bitmapFontText = this.game.add.bitmapText(this.game.world.centerX, this.game.world.centerY + 100, Assets.BitmapFonts.FontsFontFnt.getName(), 'Bitmap Fonts + Filters .js (Blur here)!', 40);
-        this.bitmapFontText.anchor.setTo(0.5);
+        this.player = this.game.add.sprite(350, 100, this.playerBD);
+        this.game.physics.arcade.enable(this.player);
+        this.player.body.gravity.y = 1000;
+        this.player.body.collideWorldBounds = true;
 
-        this.blurXFilter = this.game.add.filter(Assets.Scripts.ScriptsBlurX.getName()) as Phaser.Filter.BlurX;
-        this.blurXFilter.blur = 8;
-        this.blurYFilter = this.game.add.filter(Assets.Scripts.ScriptsBlurY.getName()) as Phaser.Filter.BlurY;
-        this.blurYFilter.blur = 2;
+        let level = this.game.cache.getJSON('level');
+        for (let b of level.blocks) {
+            let s = this.blocks.create(b.x, b.y, this.white) as Phaser.Sprite;
+            s.scale.x = b.width;
+            s.scale.y = b.height;
+            s.body.immovable = true;
+        }
 
-        this.bitmapFontText.filters = [this.blurXFilter, this.blurYFilter];
+        this.cursors = this.game.input.keyboard.createCursorKeys();
+    }
 
-        this.mummySpritesheet = this.game.add.sprite(this.game.world.centerX, this.game.world.centerY + 175, Assets.Spritesheets.SpritesheetsMetalslugMummy374518.getName());
-        this.mummySpritesheet.animations.add('walk');
-        this.mummySpritesheet.animations.play('walk', 30, true);
+    public update(): void {
+        var hitPlatform = this.game.physics.arcade.collide(this.player, this.blocks);
 
-        this.sfxAudiosprite = this.game.add.audioSprite(Assets.Audiosprites.AudiospritesSfx.getName());
+        this.player.body.velocity.x = 0;
 
-        // This is an example of how you can lessen the verbosity
-        let availableSFX = Assets.Audiosprites.AudiospritesSfx.Sprites;
-        this.sfxLaserSounds = [
-            availableSFX.Laser1,
-            availableSFX.Laser2,
-            availableSFX.Laser3,
-            availableSFX.Laser4,
-            availableSFX.Laser5,
-            availableSFX.Laser6,
-            availableSFX.Laser7,
-            availableSFX.Laser8,
-            availableSFX.Laser9
-        ];
-
-        this.game.sound.play(Assets.Audio.AudioMusic.getName(), 0.2, true);
-
-        this.backgroundTemplateSprite.inputEnabled = true;
-        this.backgroundTemplateSprite.events.onInputDown.add(() => {
-            this.sfxAudiosprite.play(Phaser.ArrayUtils.getRandomItem(this.sfxLaserSounds));
-        });
-
-        this.game.camera.flash(0x000000, 1000);
+        if (this.cursors.left.isDown) {
+            this.player.body.velocity.x = -150;
+        }
+        else if (this.cursors.right.isDown) {
+            this.player.body.velocity.x = 150;
+        }
     }
 }
