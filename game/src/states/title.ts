@@ -97,6 +97,10 @@ export default class Title extends Phaser.State {
 
         this.player.body.acceleration.x = 0;
 
+        let desiredHorizontalDirection =
+            (this.cursors.left.isDown ? -1 : 0) +
+            (this.cursors.right.isDown ? 1 : 0);
+
         if (this.cursors.left.isDown) {
             this.player.body.acceleration.x = -this.getAcceleration(this.player.body);
         }
@@ -104,7 +108,7 @@ export default class Title extends Phaser.State {
             this.player.body.acceleration.x = this.getAcceleration(this.player.body);
         }
 
-        if (!this.cursors.left.isDown && !this.cursors.right.isDown) {
+        if (Math.sign(this.player.body.velocity.x) != desiredHorizontalDirection) {
             this.player.body.velocity.x = Math.sign(this.player.body.velocity.x) *
                 Math.max(Math.abs(this.player.body.velocity.x) - FRICTION_OFFSET, 0);
         }
