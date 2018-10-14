@@ -6,6 +6,8 @@ const X_JUMP_FACTOR = 20;
 const Y_JUMP_FACTOR = 0.6;
 const STATIONARY_JUMP = 300;
 const Y_JUMP_NERF = 0.5;
+const JUMP_WINDOW = 12;
+const SIDE_JUMP_ANGLE = 40;
 
 const GAME_SCALE = 0.5;
 
@@ -17,6 +19,8 @@ export default class Title extends Phaser.State {
     private player: Phaser.Sprite;
     private cursors: Phaser.CursorKeys;
     private previousVelocity: Phaser.Point = new Phaser.Point();
+
+    private jumpWindow: number = 0;
 
     public restart(): void {
         this.game.world.removeAll(true, false, true);
@@ -30,7 +34,7 @@ export default class Title extends Phaser.State {
         this.white.fill(255, 255, 255);
 
         this.playerBD = new Phaser.BitmapData(this.game, "player", 1, 1);
-        this.playerBD.fill(255, 0, 0);
+        this.playerBD.fill(0, 255, 0);
 
         this.player = this.game.add.sprite(350, 100, this.playerBD);
         this.player.width = 32;
@@ -69,16 +73,19 @@ export default class Title extends Phaser.State {
                 console.log("RESTART");
                 this.restart();
             }
+            if (e.key === " ") {
+                this.jumpWindow = JUMP_WINDOW;
+            }
         })
     }
 
     private getJumpVelocity(v: Phaser.Point) {
-        /*let squareJump = (Math.sqrt(Math.pow(v.x, 2) + Math.pow(v.y, 2)));
-        console.log("SQRT JUMP", Math.sqrt(squareJump));
-        let jump = Math.max(Math.sqrt(squareJump)*JUMP_MODIFIER, STATIONARY_JUMP);
-        return -jump;*/
         let jump = Math.sqrt(Math.abs(v.x)) * X_JUMP_FACTOR + Math.abs(v.y) * Y_JUMP_FACTOR;
-        return -Math.max(jump, STATIONARY_JUMP);
+        return Math.max(jump, STATIONARY_JUMP);
+    }
+
+    private getFinalJumpVelocity(): number {
+        return Math.max(this.getJumpVelocity(this.player.body.velocity), this.getJumpVelocity(this.previousVelocity));
     }
 
     private getAcceleration(b: Phaser.Physics.Arcade.Body): number {
@@ -102,11 +109,29 @@ export default class Title extends Phaser.State {
                 Math.max(Math.abs(this.player.body.velocity.x) - FRICTION_OFFSET, 0);
         }
 
-        if (this.input.keyboard.isDown(Phaser.Keyboard.SPACEBAR) && this.player.body.touching.down && hitPlatform) {
-            console.log(this.player.body.velocity, this.previousVelocity);
+        if (this.jumpWindow > 0 && this.player.body.touching.down && hitPlatform) {
+            this.player.body.velocity.y = -this.getFinalJumpVelocity();
+            this.jumpWindow = 0;
+        }
+        else if (this.jumpWindow > 0 && this.player.body.touching.left && hitPlatform) {
+            let jumpVector = new Phaser.Point(0, -this.getFinalJumpVelocity()).rotate(0, 0, 90-SIDE_JUMP_ANGLE, true);
+            this.player.body.velocity.x = jumpVector.x;
+            this.player.body.velocity.y = jumpVector.y;
+            this.jumpWindow = 0;
+        }
+        else if (this.jumpWindow > 0 && this.player.body.touching.right && hitPlatform) {
+            let jumpVector = new Phaser.Point(0, -this.getFinalJumpVelocity()).rotate(0, 0, -90+SIDE_JUMP_ANGLE, true);
+            this.player.body.velocity.x += jumpVector.x;
+            this.player.body.velocity.y += jumpVector.y;
+            this.jumpWindow = 0;
+        }
 
-            this.player.body.velocity.y =
-                Math.min(this.getJumpVelocity(this.player.body.velocity), this.getJumpVelocity(this.previousVelocity));
+        // update player's color with regard to jumpWindow
+        let blue = (this.jumpWindow / JUMP_WINDOW) * 255;
+        this.playerBD.fill(0, 255, blue);
+
+        if (this.jumpWindow > 0) {
+            this.jumpWindow--;
         }
 
         this.previousVelocity.x = this.player.body.velocity.x;
